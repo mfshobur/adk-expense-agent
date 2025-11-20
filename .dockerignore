@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+agent_data.db
+*.log
+
+# Environment files - NEVER include in Docker images
+.env
+.env.*
+*.env
+
+# Git
+.git/
+.gitignore
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docs
+*.md
+!DEPLOYMENT.md
+
+# Credentials - NEVER include in Docker images
+*.json
+!package.json
+credentials.json
+token.json
+expenses-agent.json
+expense_agent/*.json
+
+# Temporary files
+test_db.py
+*.tmp
