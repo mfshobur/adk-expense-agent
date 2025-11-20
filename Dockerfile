@@ -12,8 +12,10 @@ RUN apt-get update && apt-get install -y \
 
 # Copy and install requirements as root
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir google-adk>=1.18.0
+RUN pip install --no-cache-dir pandas==2.3.3
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY . .
