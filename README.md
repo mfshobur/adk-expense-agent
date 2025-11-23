@@ -1,3 +1,5 @@
+![alt text](image.png)
+
 # Expense Agent
 
 An automated expense tracking system that monitors QRIS payment notifications from Gmail and logs them via Telegram bot. Built with Google's Agent Development Kit (ADK) and FastAPI.
