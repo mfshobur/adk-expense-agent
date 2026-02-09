@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 from datetime import datetime, timedelta
 from difflib import get_close_matches
 
@@ -15,7 +15,7 @@ def check_data_exists_tool(
     end_date: str = "",
     days_ago: str = "",
     fuzzy_threshold: float = 0.6,
-) -> Dict:
+):
     """
     Search transactions in sheet using pandas for fast queries.
 

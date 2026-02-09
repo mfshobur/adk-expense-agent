@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Optional, List, Dict
+from typing import Optional
 import re
 import logging
 
@@ -99,7 +99,7 @@ def add_transaction_tool(
         return {"status": "error", "message": "Failed to add transaction. Please try again."}
 
 
-def add_transactions_tool(transactions: List[Dict]) -> Dict:
+def add_transactions_tool(transactions: list):
     """
     Batch-add multiple transactions to the Google Sheet in a single API call.
 

@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional
 from difflib import get_close_matches
 
 from tools.sheets_utils import sheet, to_datetime, parse_date_mmddyyyy
@@ -10,7 +10,7 @@ def delete_transaction_tool(
     category: Optional[str] = None,
     fuzzy_threshold: float = 0.6,
     delete_all_matches: bool = False
-) -> Dict:
+):
     """
     Delete one or more transaction rows from the Google Sheet with fuzzy matching.
 
