@@ -4,46 +4,7 @@ from difflib import get_close_matches
 
 import pandas as pd
 
-from tools.sheets_utils import sheet
-
-# Helpers
-def _gs_serial_to_datetime(serial: float) -> datetime:
-    """
-    Convert Google Sheets serial (days since 1899-12-30) to datetime.
-    """
-    base = datetime(1899, 12, 30)
-    return base + timedelta(days=float(serial))
-
-def _parse_date_mmddyyyy(date_str: str) -> datetime:
-    """
-    Parse MM/DD/YYYY (e.g. '11/04/2025').
-    """
-    return datetime.strptime(date_str, "%m/%d/%Y")
-
-def _to_datetime(val) -> datetime:
-    """
-    Robust converter: accepts
-      - float/int (Google serial)
-      - 'MM/DD/YYYY' string
-      - datetime already
-    Returns datetime or raises Exception.
-    """
-    if isinstance(val, datetime):
-        return val
-    if isinstance(val, (float, int)):
-        return _gs_serial_to_datetime(float(val))
-    s = str(val).strip()
-    if not s:
-        raise ValueError("Empty date")
-    # try MM/DD/YYYY first
-    try:
-        return _parse_date_mmddyyyy(s)
-    except Exception:
-        # try ISO-ish fallback
-        try:
-            return datetime.fromisoformat(s)
-        except Exception:
-            raise
+from tools.sheets_utils import sheet, to_datetime, parse_date_mmddyyyy
 
 # Main tool
 def check_data_exists_tool(
@@ -119,7 +80,7 @@ def check_data_exists_tool(
     # Normalize and parse date column into datetime
     def safe_to_dt(x):
         try:
-            return _to_datetime(x)
+            return to_datetime(x)
         except Exception:
             return pd.NaT
 
@@ -165,15 +126,15 @@ def check_data_exists_tool(
     # Otherwise if user explicitly provides a single date
     elif date.strip():
         try:
-            single_date = _parse_date_mmddyyyy(date).date()
+            single_date = parse_date_mmddyyyy(date).date()
         except Exception:
             single_date = None
 
     # Or if user provides explicit range
     elif start_date.strip() and end_date.strip():
         try:
-            start_dt = _parse_date_mmddyyyy(start_date).date()
-            end_dt = _parse_date_mmddyyyy(end_date).date()
+            start_dt = parse_date_mmddyyyy(start_date).date()
+            end_dt = parse_date_mmddyyyy(end_date).date()
         except Exception:
             start_dt = end_dt = None
 
@@ -268,7 +229,7 @@ def check_data_exists_tool(
 
         # Convert Google serial or string to formatted MM/DD/YYYY
         try:
-            dt = _to_datetime(d)
+            dt = to_datetime(d)
             row["Date"] = dt.strftime("%m/%d/%Y")
         except:
             # leave as original if totally unparseable

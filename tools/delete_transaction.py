@@ -1,42 +1,7 @@
 from typing import Optional, Dict
 from difflib import get_close_matches
-from datetime import datetime, timedelta
 
-from tools.sheets_utils import sheet
-
-def _gs_serial_to_datetime(serial: float) -> datetime:
-    """
-    Convert Google Sheets serial (days since 1899-12-30) to datetime.
-    """
-    base = datetime(1899, 12, 30)
-    return base + timedelta(days=float(serial))
-
-
-def _parse_date_mmddyyyy(date_str: str) -> datetime:
-    """
-    Parse MM/DD/YYYY (e.g. '11/04/2025').
-    """
-    return datetime.strptime(date_str, "%m/%d/%Y")
-
-
-def _to_datetime(val) -> datetime:
-    """
-    Robust converter for dates.
-    """
-    if isinstance(val, datetime):
-        return val
-    if isinstance(val, (float, int)):
-        return _gs_serial_to_datetime(float(val))
-    s = str(val).strip()
-    if not s:
-        raise ValueError("Empty date")
-    try:
-        return _parse_date_mmddyyyy(s)
-    except Exception:
-        try:
-            return datetime.fromisoformat(s)
-        except Exception:
-            raise
+from tools.sheets_utils import sheet, to_datetime, parse_date_mmddyyyy
 
 
 def delete_transaction_tool(
@@ -114,8 +79,8 @@ def delete_transaction_tool(
             # Apply optional date filter
             if date_str:
                 try:
-                    record_date = _to_datetime(record["Date"])
-                    filter_date = _parse_date_mmddyyyy(date_str)
+                    record_date = to_datetime(record["Date"])
+                    filter_date = parse_date_mmddyyyy(date_str)
                     if record_date.date() != filter_date.date():
                         continue
                 except Exception:
@@ -162,9 +127,21 @@ def delete_transaction_tool(
                 "matches_found": len(rows_to_delete)
             }
 
-        # Delete rows (in reverse order to avoid row index shifting)
-        for row_num in reversed(rows_to_delete):
-            sheet.delete_rows(row_num)
+        # Group sorted row numbers into contiguous (start, end) ranges,
+        # then delete in reverse order to avoid row-index shifting.
+        sorted_rows = sorted(rows_to_delete)
+        ranges = []
+        start = end = sorted_rows[0]
+        for r in sorted_rows[1:]:
+            if r == end + 1:
+                end = r
+            else:
+                ranges.append((start, end))
+                start = end = r
+        ranges.append((start, end))
+
+        for start, end in reversed(ranges):
+            sheet.delete_rows(start, end)
 
         return {
             "status": "success",

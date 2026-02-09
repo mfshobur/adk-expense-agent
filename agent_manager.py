@@ -2,7 +2,7 @@ from google.adk.sessions import DatabaseSessionService
 from google.adk.memory import InMemoryMemoryService
 from google.adk.runners import Runner
 from google.adk.apps.app import App, EventsCompactionConfig
-from expense_agent.agent import expense_agent
+from agents.root_agent import root_agent
 from google.genai import types
 import os
 from dotenv import load_dotenv
@@ -83,7 +83,7 @@ memory_service = InMemoryMemoryService()
 
 app = App(
     name='expense_app',
-    root_agent=expense_agent
+    root_agent=root_agent
     # BUG: EventsCompactionConfig causes 'dict' object has no attribute 'start_timestamp'
     # events_compaction_config=EventsCompactionConfig(
     #     compaction_interval=30,

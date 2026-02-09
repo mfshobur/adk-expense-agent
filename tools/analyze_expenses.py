@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 import pandas as pd
 
-from tools.sheets_utils import sheet
-from tools.check_data_exists import _to_datetime, _parse_date_mmddyyyy
+from tools.sheets_utils import sheet, to_datetime, parse_date_mmddyyyy
 
 def _clean_json(obj):
     """Recursively convert datetime/date to string for safe JSON serialization."""
@@ -90,7 +89,7 @@ def analyze_expenses_tool(
         - Date filters require valid MM/DD/YYYY format
         - The 'days' filter overrides start_date/end_date if both are provided
         - Records with invalid dates are automatically excluded from analysis
-        - The function requires 'sheet', 'pd', '_to_datetime', '_parse_date_mmddyyyy', 
+        - The function requires 'sheet', 'pd', 'to_datetime', 'parse_date_mmddyyyy', 
           and '_clean_json' to be available in the scope
     """
 
@@ -105,7 +104,7 @@ def analyze_expenses_tool(
     # Parse dates
     def safe_date(x):
         try:
-            return _to_datetime(x)
+            return to_datetime(x)
         except:
             return pd.NaT
 
@@ -127,8 +126,8 @@ def analyze_expenses_tool(
     # Filter: date range
     if start_date and end_date:
         try:
-            s = _parse_date_mmddyyyy(start_date).date()
-            e = _parse_date_mmddyyyy(end_date).date()
+            s = parse_date_mmddyyyy(start_date).date()
+            e = parse_date_mmddyyyy(end_date).date()
             df = df[(df["__date_only"] >= s) & (df["__date_only"] <= e)]
         except:
             pass
@@ -160,7 +159,7 @@ def analyze_expenses_tool(
     details = []
     for row in df.to_dict(orient="records"):
         try:
-            dt = _to_datetime(row["Date"])
+            dt = to_datetime(row["Date"])
             row["Date"] = dt.strftime("%m/%d/%Y")
         except:
             pass

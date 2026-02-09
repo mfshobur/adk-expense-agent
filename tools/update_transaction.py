@@ -1,23 +1,12 @@
 from typing import Optional
 from difflib import get_close_matches
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 import logging
 
-from tools.sheets_utils import sheet
+from tools.sheets_utils import sheet, gs_serial_to_datetime, VALID_CATEGORIES
 
 logger = logging.getLogger(__name__)
-
-VALID_CATEGORIES = {
-    'Food', 'Health & Wellness', 'Snack', 'Bills & Utilities',
-    'Entertainment', 'Transport', 'Education', 'Charity'
-}
-
-def excel_date_to_datetime(excel_date):
-    """Convert Excel serial date to datetime object."""
-    if isinstance(excel_date, (int, float)):
-        return datetime(1899, 12, 30) + timedelta(days=excel_date)
-    return None
 
 def update_transaction_tool(
     name: str,
@@ -105,18 +94,22 @@ def update_transaction_tool(
     if not matches:
         return {"status": "not_found", "message": f"No match found similar to '{name}'"}
 
+    # Collect cell references for batch update
+    col_letter = chr(ord('A') + target_col_index - 1)
+    cells_to_update = []
+
     for i, record in enumerate(records, start=2):
         rec_name = record["Name"].strip()
         if rec_name in matches:
             if not date_str:
-                sheet.update_cell(i, target_col_index, new_value)
+                cells_to_update.append(f"{col_letter}{i}")
                 updated_rows += 1
             else:
                 record_date_raw = record["Date"]
                 date_match = False
 
                 if isinstance(record_date_raw, (int, float)):
-                    dt = excel_date_to_datetime(record_date_raw)
+                    dt = gs_serial_to_datetime(record_date_raw)
                     if dt and dt.strftime("%m/%d/%Y") == date_str:
                         date_match = True
                 else:
@@ -132,8 +125,14 @@ def update_transaction_tool(
                             pass
 
                 if date_match:
-                    sheet.update_cell(i, target_col_index, new_value)
+                    cells_to_update.append(f"{col_letter}{i}")
                     updated_rows += 1
+
+    if cells_to_update:
+        sheet.batch_update([{
+            'range': cell_ref,
+            'values': [[new_value]],
+        } for cell_ref in cells_to_update], value_input_option="USER_ENTERED")
 
     if updated_rows == 0:
         return {

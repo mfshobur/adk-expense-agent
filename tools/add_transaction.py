@@ -1,17 +1,11 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List, Dict
 import re
 import logging
 
-from tools.sheets_utils import sheet
+from tools.sheets_utils import sheet, VALID_CATEGORIES
 
 logger = logging.getLogger(__name__)
-
-# Valid category whitelist
-VALID_CATEGORIES = {
-    'Food', 'Health & Wellness', 'Snack', 'Bills & Utilities',
-    'Entertainment', 'Transport', 'Education', 'Charity', 'Shopping'
-}
 
 def add_transaction_tool(
     name: str,
@@ -103,3 +97,121 @@ def add_transaction_tool(
     except Exception as e:
         logger.error(f"Error adding transaction: {e}")
         return {"status": "error", "message": "Failed to add transaction. Please try again."}
+
+
+def add_transactions_tool(transactions: List[Dict]) -> Dict:
+    """
+    Batch-add multiple transactions to the Google Sheet in a single API call.
+
+    Args:
+        transactions: List of transaction dicts, each with:
+            - name (str, required): Item name
+            - amount (float, required): Amount in IDR (positive, max 100M)
+            - category (str, required): Must be one of the valid categories
+            - date_str (str, optional): Date in MM/DD/YYYY format (default = today)
+            - notes (str, optional): Note for the transaction
+
+    Returns:
+        Dict with status, added_count, error_count, errors (list of per-item errors)
+
+    Examples:
+        add_transactions_tool(transactions=[
+            {"name": "Coffee", "amount": 25000, "category": "Food"},
+            {"name": "Bus ticket", "amount": 5000, "category": "Transport", "date_str": "01/15/2025"}
+        ])
+    """
+    if not isinstance(transactions, list) or not transactions:
+        return {"status": "error", "message": "transactions must be a non-empty list"}
+
+    if len(transactions) > 50:
+        return {"status": "error", "message": "Maximum 50 transactions per batch"}
+
+    rows_to_add = []
+    errors = []
+    today_str = date.today().strftime("%m/%d/%Y")
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for idx, txn in enumerate(transactions):
+        if not isinstance(txn, dict):
+            errors.append({"index": idx, "message": "Item must be a dict"})
+            continue
+
+        t_name = txn.get("name", "")
+        t_amount = txn.get("amount")
+        t_category = txn.get("category", "")
+        t_date_str = txn.get("date_str", "")
+        t_notes = txn.get("notes", "")
+
+        # Validate name
+        if not t_name or not isinstance(t_name, str):
+            errors.append({"index": idx, "message": "Name is required and must be text"})
+            continue
+        if len(t_name) > 100:
+            errors.append({"index": idx, "message": "Name must be 100 characters or less"})
+            continue
+        t_name = re.sub(r'[<>\"\'=;]', '', t_name).strip()
+        if not t_name:
+            errors.append({"index": idx, "message": "Name contains only invalid characters"})
+            continue
+
+        # Validate amount
+        if not isinstance(t_amount, (int, float)):
+            errors.append({"index": idx, "message": f"Amount must be a number, got {type(t_amount).__name__}"})
+            continue
+        if t_amount <= 0:
+            errors.append({"index": idx, "message": "Amount must be positive"})
+            continue
+        if t_amount > 100_000_000:
+            errors.append({"index": idx, "message": "Amount exceeds maximum limit (100,000,000 IDR)"})
+            continue
+
+        # Validate category
+        t_category = str(t_category).strip()
+        if t_category not in VALID_CATEGORIES:
+            errors.append({"index": idx, "message": f"Invalid category '{t_category}'"})
+            continue
+
+        # Validate date
+        if t_date_str:
+            try:
+                parsed = datetime.strptime(t_date_str, "%m/%d/%Y")
+                if parsed.year < 2020 or parsed.year > 2030:
+                    errors.append({"index": idx, "message": "Date must be between 2020 and 2030"})
+                    continue
+                t_date_str = parsed.strftime("%m/%d/%Y")
+            except ValueError:
+                errors.append({"index": idx, "message": "Date must be in MM/DD/YYYY format"})
+                continue
+        else:
+            t_date_str = today_str
+
+        # Validate notes
+        if len(t_notes) > 500:
+            errors.append({"index": idx, "message": "Notes must be 500 characters or less"})
+            continue
+        t_notes = re.sub(r'[<>\"\'=;]', '', t_notes).strip()
+
+        rows_to_add.append([t_name, float(t_amount), t_category, created_at, t_date_str, t_notes])
+
+    if not rows_to_add:
+        return {
+            "status": "error",
+            "message": "No valid transactions to add",
+            "added_count": 0,
+            "error_count": len(errors),
+            "errors": errors,
+        }
+
+    try:
+        sheet.append_rows(rows_to_add, value_input_option="USER_ENTERED")
+    except Exception as e:
+        logger.error(f"Error batch-adding transactions: {e}")
+        return {"status": "error", "message": "Failed to add transactions. Please try again."}
+
+    return {
+        "status": "success",
+        "message": f"Added {len(rows_to_add)} transaction(s)",
+        "added_count": len(rows_to_add),
+        "error_count": len(errors),
+        "errors": errors,
+    }

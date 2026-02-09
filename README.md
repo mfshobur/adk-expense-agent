@@ -6,18 +6,50 @@ An automated expense tracking system that monitors QRIS payment notifications fr
 
 ## Features
 
+- **Multi-Agent Architecture**: Root coordinator delegates to specialized sub-agents (expense tracking, internet search)
 - **Gmail Integration**: Monitors payment notification emails via Pub/Sub push notifications
 - **Telegram Bot**: Interactive expense tracking through natural language commands
+- **Internet Search**: Real-time web search via DuckDuckGo for general questions
 - **Smart Processing**: Uses Gmail History API to filter only new messages, preventing duplicates
 - **Persistent Sessions**: PostgreSQL-backed session storage shared between services
+- **Multi-LLM Support**: Switch between Gemini, OpenAI, and Anthropic models via env vars
 - **Single Container**: Combined Gmail and Telegram webhooks in one FastAPI app
 
 ## Architecture
 
 ```
-Gmail Pub/Sub → FastAPI Webhook → Expense Agent (Google ADK)
-                                        ↓
-Telegram Bot ← HTTP Response ← PostgreSQL Sessions
+                         ┌─────────────────┐
+                         │   root_agent    │
+                         │  (coordinator)  │
+                         └────┬───────┬────┘
+                              │       │
+                    ┌─────────┘       └─────────┐
+                    ▼                           ▼
+          ┌─────────────────┐         ┌─────────────────┐
+          │  expense_agent  │         │  search_agent   │
+          │  (Google Sheets)│         │  (DuckDuckGo)   │
+          └─────────────────┘         └─────────────────┘
+```
+
+The root agent uses ADK's `sub_agents` parameter for automatic LLM-driven routing — each sub-agent's `description` tells the LLM when to delegate.
+
+```
+agents/
+├── __init__.py          # Re-exports root_agent
+├── root_agent.py        # Coordinator — routes to sub-agents
+├── expense_agent.py     # Expense sub-agent
+├── search_agent.py      # Internet search sub-agent
+└── model_config.py      # Shared model-switching logic
+
+tools/
+├── add_transaction.py   # Add single/batch transactions
+├── update_transaction.py
+├── delete_transaction.py
+├── check_data_exists.py
+├── analyze_expenses.py
+├── check_today_date.py
+├── web_search.py        # DuckDuckGo search
+└── sheets_utils.py      # Shared Google Sheets helpers
 ```
 
 The app runs two webhooks in a single container:
@@ -51,35 +83,33 @@ cp .env.example .env
 
 ### Environment Variables
 
-Create a `.env` file with the following:
+Copy `.env.example` to `.env` and fill in your values:
 
 ```bash
-# Google Sheets
-SHEET_ID=your_google_sheet_id
-SHEET_NAME=your_sheet_name
-SPREADSHEET_ID=your_spreadsheet_id
-
-# API Keys
-GOOGLE_API_KEY=your_google_api_key
-GOOGLE_GENAI_USE_VERTEXAI=FALSE
-
-# Telegram
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_WEBHOOK_URL=https://your-domain.com/telegram/webhook
-TELEGRAM_WEBHOOK_SECRET=your_secret_token
-TELEGRAM_USER_ID=your_telegram_user_id
-ALLOWED_TELEGRAM_USER_IDS=comma_separated_user_ids
-
-# Gmail Pub/Sub
-GMAIL_PUBSUB_TOKEN=your_pubsub_auth_token
-PAYMENT_LABEL_ID=Label_123  # Gmail label ID for payment emails
-
-# Database
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-
-# Optional
-OPENAI_API_KEY=your_openai_key
+cp .env.example .env
 ```
+
+| Variable | Required | Description |
+|---|---|---|
+| `LLM_PROVIDER` | No | `gemini` (default), `openai`, or `anthropic` |
+| `LLM_MODEL` | No | Model name (default: `gemini-2.5-flash`) |
+| `GOOGLE_API_KEY` | Yes* | Google API key (*required for Gemini provider) |
+| `GOOGLE_GENAI_USE_VERTEXAI` | No | Set to `TRUE` to use Vertex AI (default: `FALSE`) |
+| `OPENAI_API_KEY` | Yes* | OpenAI API key (*required for OpenAI provider) |
+| `ANTHROPIC_API_KEY` | Yes* | Anthropic API key (*required for Anthropic provider) |
+| `SHEET_ID` | Yes | Google Sheet ID for expense tracking |
+| `SHEET_NAME` | Yes | Worksheet name (e.g. `Transactions`) |
+| `SERVICE_ACCOUNT_JSON` | Yes* | Base64-encoded service account JSON (*production only) |
+| `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token from BotFather |
+| `TELEGRAM_USER_ID` | Yes | Your Telegram user ID |
+| `TELEGRAM_WEBHOOK_URL` | Yes | Public HTTPS URL for Telegram webhook |
+| `TELEGRAM_WEBHOOK_SECRET` | Yes | Secret token for webhook verification |
+| `ALLOWED_TELEGRAM_USER_IDS` | No | Comma-separated allowed user IDs (defaults to `TELEGRAM_USER_ID`) |
+| `AGENT_INSTRUCTION` | No | Agent personality and behavior rules |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `GMAIL_TOKEN_JSON` | Yes* | Base64-encoded Gmail OAuth token (*for email monitoring) |
+| `PUBSUB_AUTH_TOKEN` | No | Auth token for Pub/Sub push verification |
+| `PORT` | No | Server port (default: `8080`) |
 
 ### Run Locally
 
@@ -192,7 +222,7 @@ curl -X POST https://api.telegram.org/bot<TOKEN>/setWebhook \
 ### 4. Database Setup (Supabase)
 
 1. Create a [Supabase](https://supabase.com) project
-2. Get your PostgreSQL connection string from Settings → Database
+2. Get your PostgreSQL connection string from Settings > Database
 3. Add to `DATABASE_URL` in your `.env`
 
 The required table will be created automatically by the agent.
@@ -211,9 +241,11 @@ The required table will be created automatically by the agent.
 
 ```
 i just bought fried rice for 50 IDR
-change yesterday’s soap price to 20,000 IDR
-delete this morning’s chicken porridge transaction
+change yesterday's soap price to 20,000 IDR
+delete this morning's chicken porridge transaction
 total expenses for this month
+what's the latest news about AI?
+search for best budgeting tips
 ```
 
 ### How It Works
@@ -223,7 +255,7 @@ total expenses for this month
 3. App processes email using Gmail History API
 4. Expense Agent extracts payment details
 5. Agent sends summary to your Telegram
-6. You can chat with the bot to manage expenses
+6. You can chat with the bot to manage expenses or ask general questions
 
 ## Security
 
@@ -238,7 +270,7 @@ total expenses for this month
 **Pub/Sub notifications not arriving:**
 - Check Gmail watch is active (expires after 7 days)
 - Verify push endpoint is publicly accessible
-- Check `GMAIL_PUBSUB_TOKEN` matches subscription auth token
+- Check `PUBSUB_AUTH_TOKEN` matches subscription auth token
 
 **Telegram webhook not working:**
 - Verify `TELEGRAM_WEBHOOK_SECRET` matches bot webhook configuration

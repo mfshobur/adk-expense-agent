@@ -1,6 +1,7 @@
-from .add_transaction import add_transaction_tool
+from .add_transaction import add_transaction_tool, add_transactions_tool
 from .update_transaction import update_transaction_tool
 from .delete_transaction import delete_transaction_tool
 from .check_today_date import check_today_date_tool
 from .check_data_exists import check_data_exists_tool
 from .analyze_expenses import analyze_expenses_tool
+from .web_search import web_search_tool
