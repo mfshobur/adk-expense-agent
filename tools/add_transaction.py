@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Optional
+import json
 import re
 import logging
 
@@ -99,29 +100,28 @@ def add_transaction_tool(
         return {"status": "error", "message": "Failed to add transaction. Please try again."}
 
 
-def add_transactions_tool(transactions: list):
+def add_transactions_tool(transactions_json: str):
     """
     Batch-add multiple transactions to the Google Sheet in a single API call.
 
     Args:
-        transactions: List of transaction dicts, each with:
+        transactions_json: A JSON string containing an array of transaction objects.
+            Each object must have:
             - name (str, required): Item name
             - amount (float, required): Amount in IDR (positive, max 100M)
             - category (str, required): Must be one of the valid categories
             - date_str (str, optional): Date in MM/DD/YYYY format (default = today)
             - notes (str, optional): Note for the transaction
 
-    Returns:
-        Dict with status, added_count, error_count, errors (list of per-item errors)
-
-    Examples:
-        add_transactions_tool(transactions=[
-            {"name": "Coffee", "amount": 25000, "category": "Food"},
-            {"name": "Bus ticket", "amount": 5000, "category": "Transport", "date_str": "01/15/2025"}
-        ])
+            Example: '[{"name": "Coffee", "amount": 25000, "category": "Food"}, {"name": "Bus ticket", "amount": 5000, "category": "Transport"}]'
     """
+    try:
+        transactions = json.loads(transactions_json)
+    except (json.JSONDecodeError, TypeError):
+        return {"status": "error", "message": "transactions_json must be a valid JSON array string"}
+
     if not isinstance(transactions, list) or not transactions:
-        return {"status": "error", "message": "transactions must be a non-empty list"}
+        return {"status": "error", "message": "transactions_json must contain a non-empty JSON array"}
 
     if len(transactions) > 50:
         return {"status": "error", "message": "Maximum 50 transactions per batch"}

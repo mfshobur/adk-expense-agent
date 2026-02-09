@@ -14,7 +14,6 @@ def update_transaction_tool(
     new_value: str,
     date_str: Optional[str] = None,
     fuzzy_threshold: float = 0.6,
-    **kwargs
 ):
     """
     Update one or more transaction rows in the Google Sheet, with fuzzy or partial matching for names.
@@ -26,8 +25,6 @@ def update_transaction_tool(
         date_str: Optional date filter (MM/DD/YYYY)
         fuzzy_threshold: Similarity cutoff (0-1)
     """
-    if kwargs:
-        logger.debug(f"Ignoring extra parameters: {list(kwargs.keys())}")
 
     valid_fields = ["Name", "Amount", "Category", "Created", "Date", "Notes"]
     if field.capitalize() not in valid_fields:

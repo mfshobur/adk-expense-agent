@@ -1,7 +1,7 @@
 from duckduckgo_search import DDGS
 
 
-def web_search_tool(query: str, max_results: int = 5) -> dict:
+def web_search_tool(query: str, max_results: int = 5):
     """
     Search the internet using DuckDuckGo.
 

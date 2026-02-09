@@ -1,4 +1,3 @@
-from typing import List
 from datetime import datetime, timedelta
 from difflib import get_close_matches
 
@@ -189,7 +188,7 @@ def check_data_exists_tool(
     df["__name_clean"] = df["Name"].astype(str).str.strip()
     all_names = df["__name_clean"].unique().tolist()
 
-    names_to_check: List[str] = (
+    names_to_check = (
         [n.strip() for n in name.split(",") if n.strip()] if name.strip() else []
     )
 
