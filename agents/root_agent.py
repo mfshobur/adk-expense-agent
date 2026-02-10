@@ -1,7 +1,7 @@
 import os
 from google.adk.agents.llm_agent import Agent
 from google.adk.tools import load_memory
-from tools import check_today_date_tool
+from tools import check_today_date_tool, get_current_datetime_tool
 from .model_config import get_model
 from .expense_agent import expense_sub_agent
 from .search_agent import search_sub_agent
@@ -19,9 +19,10 @@ AGENT_INSTRUCTION = os.getenv('AGENT_INSTRUCTION', '')
 ROOT_INSTRUCTION = f"""{AGENT_INSTRUCTION}
 
 ## Routing
+- For questions about the current date, time, day, or what day it is: answer directly using get_current_datetime_tool. Do NOT delegate to search_agent for this.
 - For expense-related requests (add, update, delete, search, or analyze transactions), delegate to the expense_agent.
 - For internet search, general knowledge, news, or any question beyond expense tracking, delegate to the search_agent.
-- Use check_today_date_tool when the user or a sub-agent needs to know today's date.
+- Use check_today_date_tool when you need today's date for expense operations.
 - Use load_memory to recall context from previous conversations when relevant.
 """
 
@@ -31,6 +32,6 @@ root_agent = Agent(
     description='Coordinator that routes to the right specialist agent.',
     instruction=ROOT_INSTRUCTION,
     sub_agents=[expense_sub_agent, search_sub_agent],
-    tools=[check_today_date_tool, load_memory],
+    tools=[check_today_date_tool, get_current_datetime_tool, load_memory],
     after_agent_callback=auto_save_to_memory,
 )
